@@ -1,3 +1,15 @@
+# ignore *everything*
+inst/stan/*
+# unignores all subdirectories and files with stan extension
+!inst/stan/**/
+!inst/stan/*.stan
+# now, the rest of your gitignore should appear after the above
+# on windows Stan executables end in .exe
+inst/stan/*.exe
+# Ignore temporary files created as part of compilation.
+inst/stan/*.hpp
+inst/stan/*.o
+# other files
 .Rproj.user
 .Rhistory
 .Rdata
