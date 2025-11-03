@@ -6,3 +6,4 @@
 *.Rproj
 flies_etal/
 .vscode/
+*.code-workspace

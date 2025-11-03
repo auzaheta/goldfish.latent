@@ -11,7 +11,7 @@
 // You should have received a copy of the MIT License along with this
 // program. If not, see <https://opensource.org/licenses/MIT>.
 //
-// DNRE_Q0_rate_interaction_map_reduce.stan
+// DNRE_Q0_rate_int_centered.stan
 // Rate model with P fixed effect covariates, random intercepts
 // and interactions for a categorical variable coded from 1 to C
 // using map_reduce for within-chain parallelization.
@@ -20,6 +20,7 @@
 // - Standardized predictors with standard normal priors for better sampling
 // - Event-based parallelization for cleaner architecture
 // - Back-transformed parameters in original scale for interpretability
+// - Use centered parametrization
 
 functions {
   real partial_sum_rate_lpmf(
@@ -36,8 +37,7 @@ functions {
     array[] int sender,
     array[] int interaction,
     array[] vector beta_rate_std,
-    array[] real alpha_std,
-    vector gamma
+    vector gamma_std
  ) {
     real log_lik = 0.0;
     int size_slice;
@@ -57,8 +57,7 @@ functions {
 
       vector[size_slice] xb_rate =
         X_rate_std[event_slice] * beta_rate_std[interaction_event] +
-        alpha_std[interaction_event] +
-        gamma[sender[event_slice]] + log_crude_rate;
+        gamma_std[sender[event_slice]] + log_crude_rate;
 
       if (timespan[t] > 0)
         log_lik += (is_dependent[t] ? xb_rate[chose_event] : 0) -
@@ -92,6 +91,7 @@ data {
   // interaction var for event
   int<lower=2> C; // number of categories
   array[T_rate] int<lower=1, upper=C> interaction;
+  array[A] int<lower=1, upper=C> send_int;
 
   int<lower=1> grain_size;     // Grain size for map_reduce
 }
@@ -113,9 +113,9 @@ transformed data {
 
 parameters {
   array[C] vector[P_rate] beta_rate_std; // Standardized fixed effects
-  array[C] real alpha_std;               // Category-specific intercepts
+  vector[C] alpha_std;               // Category-specific intercepts
   real<lower=0> sigma;                   // Variance of the random effect
-  vector[A] gamma_raw;                   // Uncentered random effects
+  vector[A] gamma_std;                   // Centered random effects
 }
 
 transformed parameters {
@@ -126,28 +126,35 @@ transformed parameters {
   }
 
   // Back-transform intercepts (include log_crude_rate AND standardization adjustment)
-  array[C] real alpha;
-  for (c in 1:C) {
-    real adjustment = 0.0;
-    for (p in 1:P_rate) {
-      adjustment += beta_rate_std[c, p] * X_means[p] / X_sds[p];
+  vector[C] alpha;
+  vector[A] gamma;
+  {
+    vector[C] adjustment = rep_vector(0.0, C);
+    for (c in 1:C) {
+      for (p in 1:P_rate) {
+        adjustment[c] += beta_rate_std[c, p] * X_means[p] / X_sds[p];
+      }
+      alpha[c] = alpha_std[c] + log_crude_rate - adjustment[c];
     }
-    alpha[c] = alpha_std[c] + log_crude_rate - adjustment;
-  }
 
-  // Back-transform random effects (centered around interaction mean)
-  vector[A] gamma = sigma * gamma_raw;
+    for (a in 1:A) {
+      // gamma[a] = gamma_std[a] + log_crude_rate - adjustment[send_int[a]];
+      gamma[a] = gamma_std[a] - alpha_std[send_int[a]];
+    }
+  }
 }
 
 model {
   // Priors for standardized coefficients
   for (c in 1:C) {
     target += std_normal_lpdf(beta_rate_std[c]);
-    target += normal_lpdf(alpha_std[c] | 0, 4);
   }
+  target += normal_lpdf(alpha_std | 0, 4);
   target += exponential_lpdf(sigma | 1);
-  target += std_normal_lpdf(gamma_raw);
 
+  for (a in 1:A) {
+    target += normal_lpdf(gamma_std[a] | alpha_std[send_int[a]], sigma);
+  }
   // Event-based parallelized likelihood computation
   array[T_rate] int event_indices = linspaced_int_array(T_rate, 1, T_rate);
 
@@ -165,7 +172,6 @@ model {
     sender,
     interaction,
     beta_rate_std,
-    alpha_std,
-    gamma
+    gamma_std
   );
 }

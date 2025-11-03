@@ -103,14 +103,16 @@ model {
   target += std_normal_lpdf(gamma_raw);
 
   // Likelihood
-  target += reduce_sum(partial_sum_lpmf,
-                       start_choice,
-                       grain_size,
-                       end_choice,
-                       X_choice,
-                       Z_temp,
-                       chose_choice,
-                       sender,
-                       beta_choice,
-                       gamma);
+  target += reduce_sum(
+    partial_sum_lpmf,
+    start_choice,
+    grain_size,
+    end_choice,
+    X_choice,
+    Z_temp,
+    chose_choice,
+    sender,
+    beta_choice,
+    gamma
+  );
 }

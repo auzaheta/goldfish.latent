@@ -14,19 +14,27 @@
 // DNRE_Q0_rate_map_reduce.stan
 // Rate model with P fixed effect covariates and random intercepts
 // using map_reduce for within-chain parallelization.
+//
+// Performance improvements:
+// - Standardized predictors with standard normal priors for better sampling
+// - Event-based parallelization for cleaner architecture
+// - Back-transformed parameters in original scale for interpretability
 
 functions {
-  real partial_sum_lpmf(
-    array[] int start_rate,
+  real partial_sum_rate_lpmf(
+    array[] int event_subset,
     int start,
     int end,
+    array[] int start_rate,
     array[] int end_rate,
     array[] int chose_rate,
     vector timespan,
     array[] int is_dependent,
-    matrix X_rate,
+    real log_crude_rate,
+    matrix X_rate_std,
     array[] int sender,
-    vector beta_rate,
+    vector beta_rate_std,
+    real alpha_std,
     vector gamma
  ) {
     real log_lik = 0.0;
@@ -36,21 +44,22 @@ functions {
     int end_event;
     int chose_event;
 
-    for (t in 1:(end - start + 1)) {
-      t_index = t + start - 1;
+    for (t in event_subset) {
       start_event = start_rate[t];
-      end_event = end_rate[t_index];
-      chose_event = chose_rate[t_index] - start_event + 1;
+      end_event = end_rate[t];
+      chose_event = chose_rate[t] - start_event + 1;
       size_slice = end_event - start_event + 1;
       array[size_slice] int event_slice =
         linspaced_int_array(size_slice, start_event, end_event);
-      
-      vector[size_slice] xb_rate = X_rate[event_slice] * beta_rate +
-        gamma[sender[event_slice]];
-      
-      if (timespan[t_index] > 0)
-        log_lik += (is_dependent[t_index] ? xb_rate[chose_event] : 0) -
-          timespan[t_index] * exp(log_sum_exp(xb_rate));
+
+      vector[size_slice] xb_rate =
+        X_rate_std[event_slice] * beta_rate_std +
+        alpha_std +
+        gamma[sender[event_slice]] + log_crude_rate;
+
+      if (timespan[t] > 0)
+        log_lik += (is_dependent[t] ? xb_rate[chose_event] : 0) -
+          timespan[t] * exp(log_sum_exp(xb_rate));
     }
 
     return log_lik;
@@ -62,7 +71,7 @@ data {
   int<lower=1> T_rate;       // Number of events
   int<lower=0> P_rate;       // Number of fixed-effect covariates
 
-  matrix[N_rate, P_rate] X_rate;
+  matrix[N_rate, P_rate] X_rate_raw; // Raw (unstandardized) data matrix
 
   // the starting, ending and chosen index observation for each event
   array[T_rate] int<lower=1, upper=N_rate> start_rate;
@@ -81,42 +90,66 @@ data {
 }
 
 transformed data {
-  // array[A] int<lower=1, upper=T_choice> end_group;
-  // for (g in 1:(A - 1)) {
-  //   end_group[g] = start_group[g + 1] - 1;
-  // }
-  // end_group[A] = T_choice;
+  // Standardize predictors
+  matrix[N_rate, P_rate] X_rate_std;
+  vector[P_rate] X_means;
+  vector[P_rate] X_sds;
+
+  for (p in 1:P_rate) {
+    X_means[p] = mean(X_rate_raw[, p]);
+    X_sds[p] = sd(X_rate_raw[, p]);
+    X_rate_std[, p] = (X_rate_raw[, p] - X_means[p]) / X_sds[p];
+  }
 
   real log_crude_rate = log(T_rate / (N_rate * mean(timespan)));
 }
 
 parameters {
-  vector[P_rate] beta_rate; // Fixed effects
+  vector[P_rate] beta_rate_std; // Standardized fixed effects
+  real alpha_std;               // Standardized intercept
   real<lower=0> sigma;          // Variance of the random effect
   vector[A] gamma_raw;          // Uncentered random effects
 }
 
 transformed parameters {
-  vector[A] gamma = sigma * gamma_raw; // Centered random effects
+  // Back-transform coefficients to original scale
+  vector[P_rate] beta_rate = beta_rate_std ./ X_sds;
+
+  // Back-transform intercept (include log_crude_rate AND standardization adjustment)
+  real adjustment = 0.0;
+  for (p in 1:P_rate) {
+    adjustment += beta_rate_std[p] * X_means[p] / X_sds[p];
+  }
+  real alpha = alpha_std + log_crude_rate - adjustment;
+
+  // Centered random effects (no alpha added)
+  vector[A] gamma = sigma * gamma_raw;
 }
 
 model {
-  // Priors
-  target += normal_lpdf(beta_rate[1] | log_crude_rate, 4);
-  target += std_normal_lpdf(beta_rate[2:]);
+  // Priors for standardized coefficients
+  target += std_normal_lpdf(beta_rate_std);
+  target += normal_lpdf(alpha_std | 0, 4);
   target += exponential_lpdf(sigma | 1);
   target += std_normal_lpdf(gamma_raw);
 
-  // Likelihood
-  target += reduce_sum(partial_sum_lpmf,
-                       start_rate,
-                       grain_size,
-                       end_rate,
-                       chose_rate,
-                       timespan,
-                       is_dependent,
-                       X_rate,
-                       sender,
-                       beta_rate,
-                       gamma);
+  // Event-based parallelized likelihood computation
+  array[T_rate] int event_indices = linspaced_int_array(T_rate, 1, T_rate);
+
+  target += reduce_sum(
+    partial_sum_rate_lpmf,
+    event_indices,
+    grain_size,
+    start_rate,
+    end_rate,
+    chose_rate,
+    timespan,
+    is_dependent,
+    log_crude_rate,
+    X_rate_std,
+    sender,
+    beta_rate_std,
+    alpha_std,
+    gamma
+  );
 }

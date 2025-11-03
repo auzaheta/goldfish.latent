@@ -11,17 +11,42 @@
 // You should have received a copy of the MIT License along with this
 // program. If not, see <https://opensource.org/licenses/MIT>.
 //
-// DNRE_Q0_rate_interaction_map_reduce.stan
-// Rate model with P fixed effect covariates, random intercepts
+// DNRE_Q0_rate_interaction_sum_zero.stan
+// Rate model with P fixed effect covariates, random intercepts with sum-to-zero constraint
 // and interactions for a categorical variable coded from 1 to C
-// using map_reduce for within-chain parallelization.
+// using QR-based sum-to-zero transformation for better identifiability.
 //
 // Performance improvements:
 // - Standardized predictors with standard normal priors for better sampling
-// - Event-based parallelization for cleaner architecture
+// - Sum-to-zero constrained random effects using QR transformation
+// - Non-centered parametrization maintained for sampling efficiency
 // - Back-transformed parameters in original scale for interpretability
 
 functions {
+  // QR-based sum-to-zero transformation from Martin Modrak's blog
+  vector Q_sum_to_zero_QR(int N) {
+    vector [2*N] Q_r;
+
+    for(i in 1:N) {
+      Q_r[i] = -sqrt((N-i)/(N-i+1.0));
+      Q_r[i+N] = inv_sqrt((N-i) * (N-i+1));
+    }
+    Q_r = Q_r * inv_sqrt(1 - inv(N));
+    return Q_r;
+  }
+  vector sum_to_zero_QR(vector x_raw, vector Q_r) {
+    int N = num_elements(x_raw) + 1;
+    vector[N] x;
+    real x_aux = 0;
+
+    for(i in 1:N-1) {
+      x[i] = x_aux + x_raw[i] * Q_r[i];
+      x_aux = x_aux + x_raw[i] * Q_r[i+N-1];
+    }
+    x[N] = x_aux;
+    return x;
+  }
+
   real partial_sum_rate_lpmf(
     array[] int event_subset,
     int start,
@@ -109,13 +134,17 @@ transformed data {
   }
 
   real log_crude_rate = log(T_rate / (N_rate * mean(timespan)));
+
+  // QR transformation for sum-to-zero constraint
+  vector[2 * A] Q_r = Q_sum_to_zero_QR(A);         // QR transformation matrix for sum-to-zero
+
 }
 
 parameters {
   array[C] vector[P_rate] beta_rate_std; // Standardized fixed effects
   array[C] real alpha_std;               // Category-specific intercepts
   real<lower=0> sigma;                   // Variance of the random effect
-  vector[A] gamma_raw;                   // Uncentered random effects
+  vector[A-1] gamma_raw;                 // A-1 uncentered random effects (sum-to-zero)
 }
 
 transformed parameters {
@@ -135,8 +164,8 @@ transformed parameters {
     alpha[c] = alpha_std[c] + log_crude_rate - adjustment;
   }
 
-  // Back-transform random effects (centered around interaction mean)
-  vector[A] gamma = sigma * gamma_raw;
+  // Sum-to-zero constrained random effects using QR transformation
+  vector[A] gamma = sigma * sum_to_zero_QR(gamma_raw, Q_r);
 }
 
 model {
@@ -146,7 +175,7 @@ model {
     target += normal_lpdf(alpha_std[c] | 0, 4);
   }
   target += exponential_lpdf(sigma | 1);
-  target += std_normal_lpdf(gamma_raw);
+  target += std_normal_lpdf(gamma_raw);  // A-1 dimensional prior
 
   // Event-based parallelized likelihood computation
   array[T_rate] int event_indices = linspaced_int_array(T_rate, 1, T_rate);
