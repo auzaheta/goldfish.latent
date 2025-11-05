@@ -1,6 +1,6 @@
 Package: goldfish.latent
 Title: Relational Event Models with Latent Variables
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: 
     person(
       given = "Alvaro",
@@ -18,7 +18,7 @@ Description: Bayesian estimation of relational event models with
     in Stan are used to perform inferences of the proposed models.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Depends: R (>= 4.1.0)
+Depends: R (>= 4.2.0)
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
@@ -41,7 +41,7 @@ Imports:
     statmod,
     stringr
 Remotes: 
-    github::snlab-ch/goldfish@v1.7.0,
+    github::stocnet/goldfish@v1.7.0,
     stan-dev/cmdstanr,
     stan-dev/posterior,
     github::stan-dev/bayesplot
@@ -50,5 +50,5 @@ RdMacros: Rdpack
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-URL: https://github.com/snlab-ch/goldfish.latent
-BugReports: https://github.com/snlab-ch/goldfish.latent/issues
+URL: https://github.com/auzaheta/goldfish.latent
+BugReports: https://github.com/auzaheta/goldfish.latent/issues

@@ -19,7 +19,7 @@ implemented in [Stan](https://mc-stan.org/).
 You can install the development version of goldfish.latent like so:
 
 ``` r
-remotes::install_github("snlab-ch/goldfish.latent", build_vignettes = TRUE)
+remotes::install_github("auzaheta/goldfish.latent", build_vignettes = FALSE)
 ```
 
 ## Example

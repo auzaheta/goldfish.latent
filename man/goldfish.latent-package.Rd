@@ -23,8 +23,8 @@ dynamic network actor models.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/snlab-ch/goldfish.latent}
-  \item Report bugs at \url{https://github.com/snlab-ch/goldfish.latent/issues}
+  \item \url{https://github.com/auzaheta/goldfish.latent}
+  \item Report bugs at \url{https://github.com/auzaheta/goldfish.latent/issues}
 }
 
 
