@@ -166,7 +166,7 @@ export_stan_data_slot.numeric <- function(
     while (approx_size / n_chunks > size_threshold) {
       n_chunks <- n_chunks * 2
     }
-    cli::cli_inform(
+    cli::cli_progress_message(
       "Vector {.field {slot_name}} is large, using {n_chunks} chunks"
     )
     vector_partition <- parallel::splitIndices(data_length, n_chunks)
@@ -201,8 +201,9 @@ export_stan_data_slot.list <- function(
   data,
   ...
 ) {
+  names_slots <- cli::cli_vec(names(data), list("vec-trunc" = 3))
   cli::cli_progress_step(
-    "Exporting list with slots: {.field {names(data)}}"
+    "Exporting list with slots: {.field {names_slots}}"
   )
   transform_json(
     data,
@@ -244,7 +245,7 @@ export_stan_data_slot.matrix <- function(
     while (approx_size / n_chunks > size_threshold) {
       n_chunks <- n_chunks * 2
     }
-    cli::cli_inform(
+    cli::cli_progress_message(
       "Matrix {.field {slot_name}} is large, using {n_chunks} chunks"
     )
     row_partition <- parallel::splitIndices(n_rows, n_chunks)
@@ -283,6 +284,9 @@ export_stan_data_slot.default <- function(
   size_threshold = 2^31 - 1,
   ...
 ) {
+  if (is.null(data)) {
+    return("")
+  }
   cli::cli_abort(
     "There is not an exporting method for class {.cls {class(data)}} {.field {slot_name}}"
   )
