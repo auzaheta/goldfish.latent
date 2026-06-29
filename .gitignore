@@ -1,21 +1,74 @@
-# ignore *everything*
-inst/stan/*
-# unignores all subdirectories and files with stan extension
-!inst/stan/**/
-!inst/stan/*.stan
-# now, the rest of your gitignore should appear after the above
-# on windows Stan executables end in .exe
-inst/stan/*.exe
-# Ignore temporary files created as part of compilation.
-inst/stan/*.hpp
-inst/stan/*.o
-# other files
-.Rproj.user
+# --- R session & workspace ---
 .Rhistory
-.Rdata
+.RData
+.Ruserdata
+.Rproj.user/
+.Rprofile
+.Renviron
+# cached OAuth token (httr)
 .httr-oauth
-.DS_Store
+
+# --- RStudio / IDE / editors ---
 *.Rproj
-flies_etal/
 .vscode/
 *.code-workspace
+
+# --- R build & check artifacts ---
+# output of R CMD build / check
+*.tar.gz
+*.tgz
+*.Rcheck/
+# compiled C/C++
+src/*.o
+src/*.so
+src/*.dll
+
+# --- Documentation ---
+# pkgdown site (built locally; deployed via CI)
+docs/
+# vignettes built by R CMD build
+inst/doc/
+
+# --- R Markdown / knitr ---
+# Intermediate files from knitting .Rmd (README.Rmd, vignettes, ...)
+*.knit.md
+*.utf8.md
+*_cache/
+*_files/
+vignettes/*.html
+
+# --- Quarto ---
+.quarto/
+
+# --- Stan / cmdstanr ---
+# cmdstanr compiles each model to an extension-less binary (or .exe on Windows)
+# plus .hpp/.o temporaries. Ignore everything under inst/stan/, then re-track the
+# source: subdirectories (e.g. templates/) and .stan files at any depth.
+inst/stan/*
+!inst/stan/**/
+!inst/stan/**/*.stan
+# Re-ignore compiled artifacts in case any land inside a re-tracked subdirectory.
+inst/stan/**/*.exe
+inst/stan/**/*.hpp
+inst/stan/**/*.o
+
+# --- OpenSpec ---
+# Change artifacts (proposals, tasks.md checkboxes, progress.md) are local
+# working state; keep only the shared project config tracked.
+openspec/*
+!openspec/config.yaml
+
+# --- OS files ---
+.DS_Store
+
+# --- AI tooling ---
+# Commit shared .claude/ config and commands; ignore only per-user local settings.
+.claude/*
+
+# --- Scratch / temporary ---
+*.log
+*.tmp
+
+# --- Project-specific ---
+# local files: exploratory
+extras/
