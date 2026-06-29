@@ -166,7 +166,7 @@ export_stan_data_slot.numeric <- function(
     while (approx_size / n_chunks > size_threshold) {
       n_chunks <- n_chunks * 2
     }
-    cli::cli_progress_message(
+    cli::cli_progress_output(
       "Vector {.field {slot_name}} is large, using {n_chunks} chunks"
     )
     vector_partition <- parallel::splitIndices(data_length, n_chunks)
@@ -245,7 +245,7 @@ export_stan_data_slot.matrix <- function(
     while (approx_size / n_chunks > size_threshold) {
       n_chunks <- n_chunks * 2
     }
-    cli::cli_progress_message(
+    cli::cli_alert_info(
       "Matrix {.field {slot_name}} is large, using {n_chunks} chunks"
     )
     row_partition <- parallel::splitIndices(n_rows, n_chunks)
@@ -361,7 +361,6 @@ write_json <- function(
 
   # Export each slot using appropriate S3 method
   for (slot_name in more_slots) {
-    cli::cli_progress_update()
     export_stan_data_slot(
       data = data_stan[[slot_name]],
       slot_name = slot_name,
@@ -369,6 +368,7 @@ write_json <- function(
       size_threshold = size_threshold
     ) |>
       writeLines(conn, useBytes = TRUE)
+    cli::cli_progress_update()
   }
 
   # Export together slots of length one

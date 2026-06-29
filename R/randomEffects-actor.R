@@ -123,15 +123,21 @@ make_data_re <- function(
   )
 
   modelInfo <- ifelse(model == "REM", "{model}", "{model}-{sub_model}")
-  if ((model == "REM" || (model == "DyNAM" && sub_model == "rate")) &&
-      !is.null(random_effects) && !inherits(random_effects, "list")) {
+  if (
+    (model == "REM" || (model == "DyNAM" && sub_model == "rate")) &&
+      !is.null(random_effects) &&
+      !inherits(random_effects, "list")
+  ) {
     cli_abort(c(
       cli_text("{.var random_effects} must be a list or NULL for ", modelInfo),
       "x" = "you have supplied a {.cls {class(random_effects)}}"
     ))
   }
-  if (model == "DyNAM" && sub_model %in% c("choice", "choice_coordination") &&
-      !inherits(random_effects, "list")) {
+  if (
+    model == "DyNAM" &&
+      sub_model %in% c("choice", "choice_coordination") &&
+      !inherits(random_effects, "list")
+  ) {
     cli_abort(c(
       cli_text("{.var random_effects} must be a list or NULL for ", modelInfo),
       "x" = "you have supplied a {.cls {class(random_effects)}}"
@@ -139,7 +145,9 @@ make_data_re <- function(
   }
 
   # setting initial values of some arguments
-  if (is.null(progress)) progress <- FALSE
+  if (is.null(progress)) {
+    progress <- FALSE
+  }
   if (is.null(control_preprocessing)) {
     control_preprocessing <- goldfish::set_preprocessing_opt()
   }
@@ -155,8 +163,8 @@ make_data_re <- function(
       "The {.var fixed_effects} argument doesn't support intercept for the ",
       "choice sub-model.",
       "i" = "Intercept will be removed from the formula."
-    )) 
-    fixed_effects <- stats::update.formula(fixed_effects, ~ .)
+    ))
+    fixed_effects <- stats::update.formula(fixed_effects, ~.)
   }
   extended_formula <- modify_formula(
     formula = fixed_effects,
@@ -210,7 +218,8 @@ make_data_re <- function(
       function(effect, explanatory, names_effects, terms_dynam) {
         if (length(explanatory) > 0) {
           paste(
-            names_effects[match(effect, terms_dynam)], "/",
+            names_effects[match(effect, terms_dynam)],
+            "/",
             names_effects[match(explanatory, terms_dynam)]
           )
         } else {
@@ -229,10 +238,15 @@ make_data_re <- function(
 
     if (processed_data$has_intercept != extended_formula$has_intercept) {
       cli_abort(c(
-        cli_text("The formula includes an intercept,",
-                 " but the preprocessing excludes it"),
-        "i" = cli_text("check if the ", modelInfo,
-                       " allows to include an intercept")
+        cli_text(
+          "The formula includes an intercept,",
+          " but the preprocessing excludes it"
+        ),
+        "i" = cli_text(
+          "check if the ",
+          modelInfo,
+          " allows to include an intercept"
+        )
       ))
     }
 
@@ -277,6 +291,9 @@ make_data_re <- function(
         cumsum(n_candidates)
       )
     })
+    if (is.null(processed_data$isDependent)) {
+      processed_data$isDependent <- TRUE
+    }
     chose_full <- with(processed_data, {
       selected[, 1] + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
     })
@@ -324,8 +341,10 @@ make_data_re <- function(
 
   if (data_stan$T != length(chose_full)) {
     cli::cli_warn(c(
-      cli_text("There is a mismatch between the number of events ",
-               "and the chose vector."),
+      cli_text(
+        "There is a mismatch between the number of events ",
+        "and the chose vector."
+      ),
       "i" = "events: {data_stan$T}, chose vector: {length(chose_full)}"
     ))
   }
@@ -450,16 +469,19 @@ compute_log_likelihood <- function(
   stopifnot(
     inherits(cmdstan_samples, c("CmdStanFit", "draws")),
     inherits(data_stan, "goldfish.latent.data"),
-    is.null(split_size) || inherits(split_size, "numeric") &&
-      length(split_size) == 1
+    is.null(split_size) ||
+      inherits(split_size, "numeric") &&
+        length(split_size) == 1
   )
 
   type <- match.arg(type)
 
-
-  if (data_stan[["data_stan"]][["Qchoice"]] > 1)
-    stop("Likelihood computation for a model with more than one random-effect",
-         " is not yet available.")
+  if (data_stan[["data_stan"]][["Qchoice"]] > 1) {
+    stop(
+      "Likelihood computation for a model with more than one random-effect",
+      " is not yet available."
+    )
+  }
 
   if (inherits(cmdstan_samples, "CmdStanFit")) {
     draws <- cmdstan_samples$draws("gamma_raw")
@@ -476,39 +498,51 @@ compute_log_likelihood <- function(
     variableNames <- dimnames(cmdstan_samples)[[3]]
 
     draws <- list(
-      beta = cmdstan_samples[, , grepl("^beta", variableNames)],
-      sigma = cmdstan_samples[, , grepl("^sigma$", variableNames)],
-      gamma_raw = cmdstan_samples[, , grepl("^gamma_raw", variableNames)]
+      beta = cmdstan_samples[,, grepl("^beta", variableNames)],
+      sigma = cmdstan_samples[,, grepl("^sigma$", variableNames)],
+      gamma_raw = cmdstan_samples[,, grepl("^gamma_raw", variableNames)]
     ) |>
       lapply(\(x) apply(x, 3, rbind))
-  } else
+  } else {
     stop(
       dQuote("cmdstan_samples"),
-      " argument expects a three dimensional ", dQuote("draws"), " object."
+      " argument expects a three dimensional ",
+      dQuote("draws"),
+      " object."
     )
+  }
 
   if (is.null(split_size) & type == "conditional") {
-    if (!is.numeric(spec) || length(spec) != 1)
+    if (!is.numeric(spec) || length(spec) != 1) {
       stop(
-        "Please provide an integer number for", dQuote("split_size"),
+        "Please provide an integer number for",
+        dQuote("split_size"),
         " parameter. It's not possible to assign it value with",
-        "the current value of", dQuote("spec")
+        "the current value of",
+        dQuote("spec")
       )
+    }
 
-    split_size <- if (spec == 1) NULL else
+    split_size <- if (spec == 1) {
+      NULL
+    } else {
       ifelse(
         data_stan[["data_stan"]][["Nchoice"]] > 1e6,
         4e4 / data_stan[["data_stan"]][["A"]],
         data_stan[["data_stan"]][["Tchoice"]] / spec
-      ) |> floor()
+      ) |>
+        floor()
+    }
 
     eventsPerCore <- if (!is.null(split_size)) {
       parallel::splitIndices(
         data_stan[["data_stan"]][["Tchoice"]],
         floor(data_stan[["data_stan"]][["Tchoice"]] / split_size)
-      )  |>
+      ) |>
         lapply(range)
-    } else NULL
+    } else {
+      NULL
+    }
   }
 
   # create cluster and initialize workers
@@ -516,7 +550,10 @@ compute_log_likelihood <- function(
     cl <- NULL
   } else {
     cl <- parallel::makeCluster(spec = spec, ...)
-    ignore <- parallel::clusterEvalQ(cl, {library(matrixStats);NULL})
+    ignore <- parallel::clusterEvalQ(cl, {
+      library(matrixStats)
+      NULL
+    })
     on.exit(parallel::stopCluster(cl))
   }
   #
@@ -531,16 +568,16 @@ compute_log_likelihood <- function(
         eventsPerCore = eventsPerCore
       )
       logLik <- Reduce(f = cbind, x = logLik)
-    } else
+    } else {
       logLik <- LogLikCondRE(
         eventsIter = NULL,
         draws = draws,
         dataList = data_stan[["data_stan"]],
         eventsPerCore = NULL
       )
+    }
 
     drawsDimnames$variable <- sprintf("event[%d]", seq.int(ncol(logLik)))
-
   } else if (type == "marginal") {
     logLik <- mllDyNAMChoice(
       draws = draws,
@@ -553,8 +590,10 @@ compute_log_likelihood <- function(
   }
 
   return(structure(
-    logLik, class = c("draws_array", "draws", "array"),
-    dim = sapply(drawsDimnames, length), dimnames = drawsDimnames
+    logLik,
+    class = c("draws_array", "draws", "array"),
+    dim = sapply(drawsDimnames, length),
+    dimnames = drawsDimnames
   ))
 }
 
@@ -577,7 +616,6 @@ compute_log_likelihood <- function(
 #'
 #' @examples mllDyNAMChoice(draws, data2stan, 11)
 mllDyNAMChoice <- function(draws, dataList, nNodes, cl = NULL) {
-
   # Get standard quadrature points
   quad <- statmod::gauss.quad.prob(nNodes, "normal", mu = 0, sigma = 1)
   # logarithm of adapted weights
@@ -624,16 +662,16 @@ mllDyNAMChoice <- function(draws, dataList, nNodes, cl = NULL) {
             utility <- sweep(xb, 1, Z * adaptNodes[i], FUN = "+")
             # # the log of the prob is utility - logSumExp: utility choice set
             utility[choice, ] - colLogSumExps(utility)
-
           }
         )
     }
     # # l_c + log(prob prior)
-    mll <- mll + outer(
-      draws$sigma[, 1],
-      adaptNodes,
-      \(x, y) dnorm(y, sd = x, log = TRUE)
-    )
+    mll <- mll +
+      outer(
+        draws$sigma[, 1],
+        adaptNodes,
+        \(x, y) dnorm(y, sd = x, log = TRUE)
+      )
     # dnorm(adaptNodes[i], sd = draws$sigma, log = TRUE)
 
     # log(\prod \sum_{qdr points} lik (qdr point)) =
@@ -644,17 +682,17 @@ mllDyNAMChoice <- function(draws, dataList, nNodes, cl = NULL) {
 
   # Parallel by sender
   if (!is.null(cl)) {
-  parallel::parSapplyLB(
-    cl,
-    seq.int(dataList$A),
-    fMarginal,
-    draws = draws,
-    mcmcStat = mcmcStat,
-    dataList = dataList,
-    quad = quad,
-    nNodes = nNodes
-  )
-  } else
+    parallel::parSapplyLB(
+      cl,
+      seq.int(dataList$A),
+      fMarginal,
+      draws = draws,
+      mcmcStat = mcmcStat,
+      dataList = dataList,
+      quad = quad,
+      nNodes = nNodes
+    )
+  } else {
     sapply(
       seq.int(dataList$A),
       fMarginal,
@@ -664,6 +702,7 @@ mllDyNAMChoice <- function(draws, dataList, nNodes, cl = NULL) {
       quad = quad,
       nNodes = nNodes
     )
+  }
 }
 
 # # function to compute the likelihood for mean draw for model w.o RE
@@ -731,7 +770,7 @@ LogLikCondRE <- function(eventsIter, draws, dataList, eventsPerCore = NULL) {
 
   gamma <- sweep(draws$gamma_raw, 1, draws$sigma, FUN = "*")
 
-  xb <- tcrossprod(X, draws$beta) +  t(sweep(gamma[, sender], 2, Z, FUN = "*"))
+  xb <- tcrossprod(X, draws$beta) + t(sweep(gamma[, sender], 2, Z, FUN = "*"))
 
   ll <- array(0, dim = c(nrow(gamma), nE))
 
@@ -742,4 +781,3 @@ LogLikCondRE <- function(eventsIter, draws, dataList, eventsPerCore = NULL) {
 
   return(ll)
 }
-
