@@ -118,3 +118,33 @@ for the general workflow. Project disciplines (commit-per-task; run
 
 R style, performance guidelines, the code-comments policy, and the `pbcopy` copy
 command live in the user-level `~/.claude/CLAUDE.md` and apply here automatically.
+
+## Code comments (project addition)
+
+- **Never reference OpenSpec artifacts in code comments** — no decision IDs
+  (`D11`), task numbers (`task 6.4`), change names, or
+  `design.md`/`proposal.md`/`spec.md` pointers. OpenSpec changes are archived
+  (and `openspec/` is gitignored here), so such a reference becomes a dangling
+  pointer to something a future reader cannot open. Comment the *reasoning
+  itself* inline (the assumption, the edge case, the paper/equation) so the
+  code stands alone; keep the OpenSpec traceability in commits and the change's
+  `progress.md`, not in the source.
+
+## Naming: snake_case for R-side names (project addition)
+
+- The package standardises on **snake_case for every R identifier it owns** —
+  return-list fields (`data_stan`, `senders_ix`, `names_effects`,
+  `effect_description`), S3 attributes (`attr(, "sub_model")`, `attr(, "model")`
+  — one spelling at every set-site and read-site), function arguments, and local
+  variables. New code is snake_case; resolve any camelCase/snake_case mismatch by
+  moving to snake_case.
+- **Documented exception — inner `data_stan` keys stay Stan-spelled.** The keys
+  of the inner `data_stan` list (`Xrate`, `startRate`, `choseChoice`, `kS`,
+  `Trate`, …) are matched by `cmdstanr` to the `data{}` blocks of the `.stan`
+  files, which are camel/mixed. They mirror the Stan model's declarations and
+  stay as-is until a separate change unifies the `.stan` interface. So
+  `data_stan$Xrate` remains camelCase by design — an intentional seam, not an
+  oversight.
+- When copying a value out of goldfish's `gather_model_data()` output (whose keys
+  are goldfish's, e.g. `namesEffects`, `has_intercept`, `isDependent`) into one of
+  this package's own returned objects, normalise it to snake_case at the boundary.
