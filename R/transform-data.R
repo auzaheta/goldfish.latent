@@ -11,6 +11,31 @@
 # You should have received a copy of the MIT License along with this
 # program. If not, see <https://opensource.org/licenses/MIT>.
 
+# Shared gather -> Stan helpers ----
+
+# Replace `$` (gather emits it for scoped covariates) with "Of" so the effect
+# names are valid Stan/data identifiers.
+#' @noRd
+sanitize_effect_names <- function(x) {
+  gsub("\\$", "Of", unlist(x))
+}
+
+# Per-event row ranges into the stacked candidate matrix, from the per-event
+# candidate counts. Returns 1-based `start`/`end` vectors (O(n), vectorised).
+#' @noRd
+make_event_index <- function(n_candidates) {
+  list(
+    start = cumsum(c(1, head(n_candidates, -1))),
+    end = cumsum(n_candidates)
+  )
+}
+
+# Intercept offset for rate models: log(T / (sum(timespan) * mean(candidates))).
+#' @noRd
+compute_offset_int <- function(timespan, n_candidates) {
+  log(length(n_candidates) / (sum(timespan) * mean(n_candidates)))
+}
+
 #' Create a data frame and apply support constraint
 #'
 #' @param data a list with stan data.

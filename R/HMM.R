@@ -148,13 +148,12 @@ make_data_hmm <- function(
       Prate <- ncol(stat_all_events)
       startRate <- cumsum(c(1, head(n_candidates, -1)))
       endRate <- cumsum(n_candidates)
-      namesEffects <- gsub("\\$", "Of", namesEffects)
+      namesEffects <- sanitize_effect_names(namesEffects)
       Xrate <- stat_all_events
       colnames(Xrate) <- namesEffects
       if (has_intercept) {
         choseRate <- selected + (startRate - 1) * isDependent
-        # mean(timespan)
-        offsetInt <- log(Trate / (sum(timespan) * mean(n_candidates)))
+        offsetInt <- compute_offset_int(timespan, n_candidates)
       } else {
         choseRate <- selected + (startRate - 1)
       }
@@ -215,7 +214,7 @@ make_data_hmm <- function(
     )
 
     nEvents <- length(data_processed_choice$sender)
-    namesEffects <- gsub("\\$", "Of", unlist(data_processed_choice$namesEffects))
+    namesEffects <- sanitize_effect_names(data_processed_choice$namesEffects)
     effectDescription <- data_processed_choice$effectDescription
 
     # build Stan objects directly from the gather statistics (no constraint
@@ -224,16 +223,15 @@ make_data_hmm <- function(
     Xmat <- data_processed_choice$stat_all_events
     colnames(Xmat) <- namesEffects
     nTotal <- nrow(Xmat)
-    startChoice <- cumsum(c(1, head(data_processed_choice$n_candidates, -1)))
-    endChoice <- cumsum(data_processed_choice$n_candidates)
-    choseChoice <- data_processed_choice$selected + (startChoice - 1)
+    ev_index <- make_event_index(data_processed_choice$n_candidates)
+    choseChoice <- data_processed_choice$selected + (ev_index$start - 1)
 
     data_stan_choice <- list(
       Tchoice = nEvents,
       Nchoice = nTotal,
       Pchoice = ncol(Xmat),
-      startChoice = startChoice,
-      endChoice = endChoice,
+      startChoice = ev_index$start,
+      endChoice = ev_index$end,
       Xchoice = Xmat,
       choseChoice = choseChoice
     )

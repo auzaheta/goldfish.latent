@@ -212,9 +212,8 @@ make_data_re <- function(
     data = data
   )
 
-  # gather column names (namesEffects is a list once interactions are present);
-  # sanitise `$` the way the downstream Stan naming expects
-  cols <- gsub("\\$", "Of", unlist(processed_data$namesEffects))
+  # gather column names (namesEffects is a list once interactions are present)
+  cols <- sanitize_effect_names(processed_data$namesEffects)
   colnames(processed_data$stat_all_events) <- cols
 
   # A single random effect (multi-RE rejected upstream) is emitted by
@@ -256,17 +255,13 @@ make_data_re <- function(
     match(processed_data$sender, senders_ix$label),
     processed_data$n_candidates
   )
-  idx_events <- with(processed_data, {
-    rbind(
-      cumsum(c(1, head(n_candidates, -1))),
-      cumsum(n_candidates)
-    )
-  })
+  ev_index <- make_event_index(processed_data$n_candidates)
+  idx_events <- rbind(ev_index$start, ev_index$end)
   if (is.null(processed_data$isDependent)) {
     processed_data$isDependent <- TRUE
   }
   chose_full <- with(processed_data, {
-    selected + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
+    selected + (ev_index$start - 1) * isDependent
   })
 
   X_mat <- processed_data$stat_all_events[, keep_cols, drop = FALSE]
@@ -280,9 +275,10 @@ make_data_re <- function(
   }
 
   if (processed_data$has_intercept) {
-    offset_int <- with(processed_data, {
-      log(length(timespan) / (sum(timespan) * mean(n_candidates)))
-    })
+    offset_int <- compute_offset_int(
+      processed_data$timespan,
+      processed_data$n_candidates
+    )
     data_stan_rate <- list(
       timespan = processed_data$timespan,
       is_dependent = processed_data$isDependent,
@@ -298,7 +294,7 @@ make_data_re <- function(
   # returned metadata keyed by the gather term labels, restricted to the kept
   # columns (the dropped standalone level-2 operand rows are excluded)
   export_names <-
-    gsub("\\$", "Of", processed_data$effectDescription[, ".term_export"])
+    sanitize_effect_names(processed_data$effectDescription[, ".term_export"])
   term_of <- setNames(rownames(processed_data$effectDescription), export_names)
   names_effects <- setNames(keep_cols, term_of[keep_cols])
   effect_description <-
