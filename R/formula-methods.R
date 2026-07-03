@@ -94,7 +94,21 @@ modify_formula <- function(
       lhs = lapply(random_terms, \(x) deparse(x[[2]])),
       rhs = lapply(random_terms, \(x) attr(x, "term.labels"))
     )
-    extended_terms <- unlist(random_labels, use.names = FALSE)
+    # Emit each random effect as its main effect plus a native cross-level
+    # interaction `lhs:predictor` for every level-2 predictor, so goldfish
+    # computes the interaction product during preprocessing. The standalone
+    # predictor column that gather adds is dropped later in make_data_re().
+    extended_terms <- unlist(
+      mapply(
+        function(lhs, rhs) {
+          if (length(rhs) > 0) c(lhs, paste(lhs, rhs, sep = ":")) else lhs
+        },
+        random_labels$lhs,
+        random_labels$rhs,
+        SIMPLIFY = FALSE
+      ),
+      use.names = FALSE
+    )
   } else {
     random_terms <- NULL
     random_labels <- NULL

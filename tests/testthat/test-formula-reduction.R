@@ -6,8 +6,13 @@
 
 oracle <- readRDS(test_path("_oracle_re_choice.rds"))
 
-# sort design-matrix columns by name so the assertion is order-insensitive
-sorted_cols <- function(m) m[, order(colnames(m)), drop = FALSE]
+# sort design-matrix columns by name (order-insensitive) and drop row names
+# (the old model.matrix path carried expanded_df row indices; Stan ignores them)
+sorted_cols <- function(m) {
+  m <- m[, order(colnames(m)), drop = FALSE]
+  rownames(m) <- NULL
+  m
+}
 
 build_choice <- function(re, sc = NULL) {
   suppressWarnings(

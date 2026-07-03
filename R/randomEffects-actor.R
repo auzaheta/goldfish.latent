@@ -84,7 +84,7 @@
 #'   during preprocessing (base, random, and constraint terms).}
 #' }
 #' @export
-#' @importFrom stats terms setNames as.formula model.matrix reformulate
+#' @importFrom stats terms setNames reformulate
 #' @importFrom goldfish gather_model_data
 #' @importFrom cli cli_abort cli_warn cli_text
 #'
@@ -212,152 +212,99 @@ make_data_re <- function(
     data = data
   )
 
-  names_effects <- setNames(
-    gsub("\\$", "Of", processed_data$namesEffects),
-    extended_formula$dynam_terms
-  )
+  # gather column names (namesEffects is a list once interactions are present);
+  # sanitise `$` the way the downstream Stan naming expects
+  cols <- gsub("\\$", "Of", unlist(processed_data$namesEffects))
+  colnames(processed_data$stat_all_events) <- cols
 
-  re_names <- names_effects[unlist(extended_formula$random_labels$lhs)]
-
-  has_cstr_relvl2 <- !is.null(extended_formula$cstr_label) ||
-    length(unlist(extended_formula$random_labels$rhs)) > 0
-
-  if (has_cstr_relvl2) {
-    cstr_data <- make_df_cstr(
-      processed_data = processed_data,
-      extended_formula = extended_formula,
-      names_effects = names_effects
-    )
-    expanded_df <- cstr_data$expanded_df
-    processed_data$effectDescription <- cstr_data$effect_description
-
-    # create objects for Stan
-    n_total <- nrow(expanded_df)
-    seq_ex_df <- seq.int(n_total)
-    # unname to match the cumsum branch: event labels from tapply must not leak
-    # into the Stan-data scalars/vectors (T, start, end)
-    idx_events <- tapply(seq.int(n_total), expanded_df$event, range) |>
-      simplify2array() |>
-      unname()
-    senders_ix <- data.frame(label = sort(unique(expanded_df$sender))) |>
-      within(index <- seq.int(label))
-    senders_ix_full <-
-      senders_ix[match(expanded_df[, "sender"], senders_ix[, "label"]), "index"]
-
-    fe_idx <- match(extended_formula$base_labels, extended_formula$dynam_terms)
-    formula_dynam_re <- mapply(
-      function(effect, explanatory, names_effects, terms_dynam) {
-        if (length(explanatory) > 0) {
-          paste(
-            names_effects[match(effect, terms_dynam)],
-            "/",
-            names_effects[match(explanatory, terms_dynam)]
-          )
-        } else {
-          names_effects[match(effect, terms_dynam)]
-        }
-      },
-      extended_formula$random_labels$lhs,
-      extended_formula$random_labels$rhs,
-      MoreArgs = list(
-        names_effects = names_effects,
-        terms_dynam = extended_formula$dynam_terms
-      )
-    ) |>
-      c(names_effects[fe_idx]) |>
-      paste(collapse = " + ")
-
-    if (processed_data$has_intercept != extended_formula$has_intercept) {
-      cli_abort(c(
-        cli_text(
-          "The formula includes an intercept,",
-          " but the preprocessing excludes it"
-        ),
-        "i" = cli_text(
-          "check if the ",
-          modelInfo,
-          " allows to include an intercept"
-        )
-      ))
-    }
-
-    X_mat <- model.matrix(
-      as.formula(paste("~ ", formula_dynam_re, " + 0")),
-      data = expanded_df
-    )
-
-    if (length(re_names) > 0) {
-      Z_mat <- expanded_df[, re_names, drop = FALSE] |>
-        as.matrix()
-      Q_model <- ncol(Z_mat)
-    } else {
-      Z_mat <- NULL
-      Q_model <- 0
-    }
-
-    chose_full <- which(expanded_df[, "selected"])
-
-    if (processed_data$has_intercept) {
-      offset_int <- with(processed_data, {
-        log(length(timespan) / (sum(timespan) * mean(n_candidates)))
-      })
-      data_stan_rate <- list(
-        timespan = processed_data$timespan,
-        is_dependent = processed_data$isDependent,
-        offset_int = offset_int
-      )
-    } else {
-      data_stan_rate <- NULL
-    }
+  # A single random effect (multi-RE rejected upstream) is emitted by
+  # modify_formula() as its main effect plus native cross-level interactions
+  # `reMain:predictor`; gather also returns the standalone predictor column,
+  # which is not a model term. Identify the RE main column (-> Z) and the
+  # level-2 predictor columns to drop by splitting the interaction names on ":".
+  interaction_cols <- cols[grepl(":", cols, fixed = TRUE)]
+  if (length(interaction_cols) > 0) {
+    operands <- strsplit(interaction_cols, ":", fixed = TRUE)
+    re_names <- unique(vapply(operands, `[`, character(1), 1L))
+    lvl2_operands <- unique(unlist(lapply(operands, `[`, -1L)))
+    drop_cols <- setdiff(lvl2_operands, re_names)
   } else {
-    senders_ix <- data.frame(label = sort(unique(processed_data$sender))) |>
-      within(index <- seq.int(label))
-    senders_ix_full <- rep(
-      match(processed_data$sender, senders_ix$label),
-      processed_data$n_candidates
-    )
-    idx_events <- with(processed_data, {
-      rbind(
-        cumsum(c(1, head(n_candidates, -1))),
-        cumsum(n_candidates)
-      )
-    })
-    if (is.null(processed_data$isDependent)) {
-      processed_data$isDependent <- TRUE
-    }
-    chose_full <- with(processed_data, {
-      selected + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
-    })
-    colnames(processed_data$stat_all_events) <- names_effects
-    X_mat <- processed_data$stat_all_events
-    n_total <- nrow(X_mat)
-    if (length(re_names) > 0) {
-      Z_mat <- processed_data$stat_all_events[, re_names, drop = FALSE]
-      Q_model <- ncol(Z_mat)
-    } else {
-      Z_mat <- NULL
-      Q_model <- 0
-    }
-    if (processed_data$has_intercept) {
-      offset_int <- with(processed_data, {
-        log(length(timespan) / (sum(timespan) * mean(n_candidates)))
-      })
-      data_stan_rate <- list(
-        timespan = processed_data$timespan,
-        is_dependent = processed_data$isDependent,
-        offset_int = offset_int,
-        has_intercept = processed_data$has_intercept
-      )
-    } else {
-      data_stan_rate <- list(
-        has_intercept = processed_data$has_intercept
-      )
-    }
+    re_map <- setNames(cols, extended_formula$dynam_terms)
+    re_names <- unname(re_map[unlist(extended_formula$random_labels$lhs)])
+    re_names <- re_names[!is.na(re_names)]
+    drop_cols <- character(0)
   }
+  keep_cols <- setdiff(cols, drop_cols)
+
+  if (processed_data$has_intercept != extended_formula$has_intercept) {
+    cli_abort(c(
+      cli_text(
+        "The formula includes an intercept,",
+        " but the preprocessing excludes it"
+      ),
+      "i" = cli_text(
+        "check if the ",
+        modelInfo,
+        " allows to include an intercept"
+      )
+    ))
+  }
+
+  senders_ix <- data.frame(label = sort(unique(processed_data$sender))) |>
+    within(index <- seq.int(label))
+  senders_ix_full <- rep(
+    match(processed_data$sender, senders_ix$label),
+    processed_data$n_candidates
+  )
+  idx_events <- with(processed_data, {
+    rbind(
+      cumsum(c(1, head(n_candidates, -1))),
+      cumsum(n_candidates)
+    )
+  })
+  if (is.null(processed_data$isDependent)) {
+    processed_data$isDependent <- TRUE
+  }
+  chose_full <- with(processed_data, {
+    selected + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
+  })
+
+  X_mat <- processed_data$stat_all_events[, keep_cols, drop = FALSE]
+  n_total <- nrow(X_mat)
+  if (length(re_names) > 0) {
+    Z_mat <- processed_data$stat_all_events[, re_names, drop = FALSE]
+    Q_model <- ncol(Z_mat)
+  } else {
+    Z_mat <- NULL
+    Q_model <- 0
+  }
+
+  if (processed_data$has_intercept) {
+    offset_int <- with(processed_data, {
+      log(length(timespan) / (sum(timespan) * mean(n_candidates)))
+    })
+    data_stan_rate <- list(
+      timespan = processed_data$timespan,
+      is_dependent = processed_data$isDependent,
+      offset_int = offset_int,
+      has_intercept = processed_data$has_intercept
+    )
+  } else {
+    data_stan_rate <- list(
+      has_intercept = processed_data$has_intercept
+    )
+  }
+
+  # returned metadata keyed by the gather term labels, restricted to the kept
+  # columns (the dropped standalone level-2 operand rows are excluded)
+  export_names <-
+    gsub("\\$", "Of", processed_data$effectDescription[, ".term_export"])
+  term_of <- setNames(rownames(processed_data$effectDescription), export_names)
+  names_effects <- setNames(keep_cols, term_of[keep_cols])
+  effect_description <-
+    processed_data$effectDescription[export_names %in% keep_cols, , drop = FALSE]
   data_stan <- list(
-    # ncol() on the simplify2array result carries a stray name; strip it so the
-    # Stan-data scalar is a clean integer in both branches
-    T = unname(ncol(idx_events)),
+    T = ncol(idx_events),
     N = n_total,
     P = ncol(X_mat),
     Q = Q_model,
@@ -388,20 +335,12 @@ make_data_re <- function(
 
   data_stan <- c(data_stan, data_stan_rate)
 
-  if (has_cstr_relvl2) {
-    names_effects <- cstr_data$names_effects
-    extended_formula[["dynam_re_terms"]] <- formula_dynam_re
-  } else {
-    names_effects <- names_effects
-    extended_formula[["dynam_re_terms"]] <- formula
-  }
-
   return(structure(
     list(
       data_stan = data_stan,
       senders_ix = senders_ix,
       names_effects = names_effects,
-      effect_description = processed_data$effectDescription,
+      effect_description = effect_description,
       extended_formula = extended_formula
     ),
     class = c("DN_RE", "goldfish.latent.data"),

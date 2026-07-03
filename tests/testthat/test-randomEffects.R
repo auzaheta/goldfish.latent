@@ -94,11 +94,14 @@ test_that("choice RE with expl effects", {
       index = 1:5
     )
   )
+  # the cross-level term is now the native interaction (reMain:predictor); the
+  # standalone level-2 operand column is dropped from the design matrix
   expect_equal(
     res$names_effects,
     c("recip" = "recip_networkState", "trans" = "trans_networkState",
       "inertia" = "inertia_networkState",
-      'outdeg(networkState, type = "ego")' = "outdeg_networkState_ego")
+      'inertia:outdeg(networkState, type = "ego")' =
+        "inertia_networkState:outdeg_networkState_ego")
   )
   expect_equal(res$data_stan$T_choice, 12)
   expect_equal(res$data_stan$P_choice, 4)
