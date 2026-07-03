@@ -28,14 +28,14 @@
 #'
 #' @return a list with the following components.
 #' \describe{
-#'   \item{dataStan}{a list with the information necessary to run a HMC using
+#'   \item{data_stan}{a list with the information necessary to run a HMC using
 #'   Stan.}
-#'   \item{namesEffects}{a character vector with terms in the random and fixed
+#'   \item{names_effects}{a character vector with terms in the random and fixed
 #'   effects formulas and their final name.}
-#'   \item{effectDescription}{an array with detailed and comprehensible
+#'   \item{effect_description}{an array with detailed and comprehensible
 #'   information of the terms used in the random and fixed effects formulas.}
-#'   \item{scale}{a list with the statistics used for the standardization when
-#'   `scale = TRUE`.}
+#'   \item{scale_stats}{a list with the statistics used for the standardization
+#'   when `scale = TRUE`.}
 #' }
 #' @importFrom goldfish set_preprocessing_opt
 #' @export
@@ -136,13 +136,14 @@ make_data_hmm <- function(
       startRate <- cumsum(c(1, head(n_candidates, -1)))
       endRate <- cumsum(n_candidates)
       namesEffects <- gsub("\\$", "Of", namesEffects)
-      Xrate <- setNames(stat_all_events, namesEffects)
-      if (hasIntercept) {
-        choseRate <- selected[, 1] + (startRate - 1) * isDependent
+      Xrate <- stat_all_events
+      colnames(Xrate) <- namesEffects
+      if (has_intercept) {
+        choseRate <- selected + (startRate - 1) * isDependent
         # mean(timespan)
-        offsetInt <- log(Trate / (sum(timespan) * mean(n_candidates))) 
+        offsetInt <- log(Trate / (sum(timespan) * mean(n_candidates)))
       } else {
-        choseRate <- selected[, 1] + (startRate - 1)
+        choseRate <- selected + (startRate - 1)
       }
       rm(
         stat_all_events, n_candidates, sender,
@@ -152,15 +153,15 @@ make_data_hmm <- function(
 
     if (scale) {
       Xrate <- scale(
-        if (dataStanRate$hasIntercept) {
-          dataStanRate$Xrate[, -1]
+        if (data_stan_rate$has_intercept) {
+          data_stan_rate$Xrate[, -1]
         } else {
-          dataStanRate$Xrate
+          data_stan_rate$Xrate
         }
       )
       scale_stats[["rate"]] <- attributes(Xrate)
 
-      if (data_stan_rate$hasIntercept) {
+      if (data_stan_rate$has_intercept) {
         data_stan_rate$Xrate[, -1] <- Xrate[, ]
       } else {
         data_stan_rate$Xrate <- Xrate[, ]
@@ -207,7 +208,7 @@ make_data_hmm <- function(
       formula = formulaDyNAM,
       model = model,
       sub_model = "choice",
-      preprocess_args = preprocess_args,
+      control_preprocessing = control_preprocessing,
       progress = progress,
       data = data
     )
@@ -301,11 +302,11 @@ make_data_hmm <- function(
   return(structure(
     list(
       data_stan = data_stan,
-      namesEffects = c(
+      names_effects = c(
         data_processed_rate$namesEffects,
         namesEffects
       ),
-      effectDescription = rbind(
+      effect_description = rbind(
         data_processed_rate$effectDescription,
         effectDescription
       ),
@@ -313,7 +314,7 @@ make_data_hmm <- function(
     ),
     class = "goldfish.latent.data",
     model = "DNHMM",
-    subModel = sub_type
+    sub_model = sub_type
   ))
 }
 
@@ -382,7 +383,7 @@ hmm_post_processing <- function(
     model %in% c("DNHMM", "DNCHMM", "DNCHMMRE")
   )
 
-  sub_model <- attr(data_to_stan, "subModel")
+  sub_model <- attr(data_to_stan, "sub_model")
 
   # extract draws and reformat for posterior computations
   typeOutput <- ifelse(is.null(cl), "draws_matrix", "draws_array")
@@ -1491,7 +1492,7 @@ hmm_draws_to_label_switching <- function(
   }
 
   model <- attr(data_to_stan, "model")
-  subModel <- attr(data_to_stan, "subModel")
+  subModel <- attr(data_to_stan, "sub_model")
 
   # extract draws and reformat for posterior computations
   theta <- ifelse(model == "DNHMM", "theta", "ta")
@@ -1806,7 +1807,7 @@ LabelSwitchingData <- function(
   )
 
   # model <- attr(data2Stan, "model")
-  subModel <- attr(data2Stan, "subModel")
+  subModel <- attr(data2Stan, "sub_model")
   methodsPer <- colnames(labelSwitching$similarity)
   methodsPer <- methodsPer[!methods %in% "groundTruth"]
 
@@ -2017,7 +2018,7 @@ plotHS <- function(
 transformMCMCArray <- function(
     data2Stan, cmdstanSamples, labelSwitching, postProcessing,
     kStates = data2Stan$dataStan$kS, method, rescale = TRUE) {
-  subModel <- attr(data2Stan, "subModel")
+  subModel <- attr(data2Stan, "sub_model")
   draws <- HMMDraws2LS(
     data2Stan, cmdstanSamples,
     kStates = kStates, type = "draws_df", rescale = rescale

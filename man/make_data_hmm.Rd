@@ -54,14 +54,14 @@ of the events sequence.}
 \value{
 a list with the following components.
 \describe{
-\item{dataStan}{a list with the information necessary to run a HMC using
+\item{data_stan}{a list with the information necessary to run a HMC using
 Stan.}
-\item{namesEffects}{a character vector with terms in the random and fixed
+\item{names_effects}{a character vector with terms in the random and fixed
 effects formulas and their final name.}
-\item{effectDescription}{an array with detailed and comprehensible
+\item{effect_description}{an array with detailed and comprehensible
 information of the terms used in the random and fixed effects formulas.}
-\item{scale}{a list with the statistics used for the standardization when
-\code{scale = TRUE}.}
+\item{scale_stats}{a list with the statistics used for the standardization
+when \code{scale = TRUE}.}
 }
 }
 \description{
