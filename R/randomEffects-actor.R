@@ -69,14 +69,16 @@
 #' @return an object of class `"goldfish.latent.data"` that contains
 #' a list with the following components.
 #' \describe{
-#'   \item{dataStan}{a list with the information necessary to run a HMC using
+#'   \item{data_stan}{a list with the information necessary to run a HMC using
 #'   Stan.}
-#'   \item{sendersIx}{a data frame with the label of the sender from the
+#'   \item{senders_ix}{a data frame with the label of the sender from the
 #'   nodes data frame, and the index assign to the random coefficient.}
-#'   \item{namesEffects}{a character vector with terms in the random and fixed
+#'   \item{names_effects}{a character vector with terms in the random and fixed
 #'   effects formulas and their final name.}
-#'   \item{effectDescription}{an array with detailed and comprehensible
+#'   \item{effect_description}{an array with detailed and comprehensible
 #'   information of the terms used in the random and fixed effects formulas.}
+#'   \item{extended_formula}{a list describing the formula components used
+#'   during preprocessing (base, random, and constraint terms).}
 #' }
 #' @export
 #' @importFrom stats terms setNames as.formula model.matrix reformulate
@@ -216,8 +218,11 @@ make_data_re <- function(
     # create objects for Stan
     n_total <- nrow(expanded_df)
     seq_ex_df <- seq.int(n_total)
+    # unname to match the cumsum branch: event labels from tapply must not leak
+    # into the Stan-data scalars/vectors (T, start, end)
     idx_events <- tapply(seq.int(n_total), expanded_df$event, range) |>
-      simplify2array()
+      simplify2array() |>
+      unname()
     senders_ix <- data.frame(label = sort(unique(expanded_df$sender))) |>
       within(index <- seq.int(label))
     senders_ix_full <-
@@ -334,7 +339,9 @@ make_data_re <- function(
     }
   }
   data_stan <- list(
-    T = ncol(idx_events),
+    # ncol() on the simplify2array result carries a stray name; strip it so the
+    # Stan-data scalar is a clean integer in both branches
+    T = unname(ncol(idx_events)),
     N = n_total,
     P = ncol(X_mat),
     Q = Q_model,
@@ -458,7 +465,7 @@ make_data_re <- function(
 #'
 #' mod01 <- cmdstan_model(stanCode)
 #' mod01Samples <- mod01$sample(
-#'   data = data2stan[["dataStan"]],
+#'   data = data2stan[["data_stan"]],
 #'   parallel_chains = 4, chains = 4,  iter_warmup = 500, iter_sampling = 500,
 #'   show_messages = FALSE
 #' )

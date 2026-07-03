@@ -84,7 +84,7 @@ stanCode <- make_model_code(data2stan)
 
 mod01 <- cmdstan_model(stanCode)
 mod01Samples <- mod01$sample(
-  data = data2stan[["dataStan"]],
+  data = data2stan[["data_stan"]],
   parallel_chains = 4, chains = 4,  iter_warmup = 500, iter_sampling = 500,
   show_messages = FALSE
 )

@@ -59,14 +59,16 @@ of the events sequence.}
 an object of class \code{"goldfish.latent.data"} that contains
 a list with the following components.
 \describe{
-\item{dataStan}{a list with the information necessary to run a HMC using
+\item{data_stan}{a list with the information necessary to run a HMC using
 Stan.}
-\item{sendersIx}{a data frame with the label of the sender from the
+\item{senders_ix}{a data frame with the label of the sender from the
 nodes data frame, and the index assign to the random coefficient.}
-\item{namesEffects}{a character vector with terms in the random and fixed
+\item{names_effects}{a character vector with terms in the random and fixed
 effects formulas and their final name.}
-\item{effectDescription}{an array with detailed and comprehensible
+\item{effect_description}{an array with detailed and comprehensible
 information of the terms used in the random and fixed effects formulas.}
+\item{extended_formula}{a list describing the formula components used
+during preprocessing (base, random, and constraint terms).}
 }
 }
 \description{

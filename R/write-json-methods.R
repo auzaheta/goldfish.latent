@@ -428,7 +428,7 @@ write_json_legacy <- function(
   # Preserve class and attributes from the original data object
   class(data_gathered) <- class(x)
   attr(data_gathered, "model") <- model
-  attr(data_gathered, "subModel") <- sub_model
+  attr(data_gathered, "sub_model") <- sub_model
   attr(data_gathered, "sample") <- has_sample
   attr(data_gathered, "scale") <- scale
   attr(data_gathered, "json_file") <- TRUE
