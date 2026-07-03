@@ -70,25 +70,18 @@ test_that("make_data_hmm both sub-models carries rate and choice blocks", {
   expect_false(is.null(res$data_stan$Xchoice))
 })
 
-test_that("make_data_hmm applies a support_constraint to the choice set", {
-  res_free <- make_data_hmm(
-    rate_effects = NULL,
-    choice_effects = depNetwork ~ recip + trans,
-    k_states = 2,
-    data = testData,
-    progress = FALSE
+test_that("make_data_hmm rejects support_constraint while it is disabled", {
+  # support_constraint is temporarily disabled pending goldfish's risk-set
+  # refactor; the argument must abort rather than silently ignore the mask
+  expect_error(
+    make_data_hmm(
+      rate_effects = NULL,
+      choice_effects = depNetwork ~ recip + trans,
+      support_constraint = ~ tie(networkExog),
+      k_states = 2,
+      data = testData,
+      progress = FALSE
+    ),
+    "support_constraint"
   )
-  res_cstr <- make_data_hmm(
-    rate_effects = NULL,
-    choice_effects = depNetwork ~ recip + trans,
-    support_constraint = ~ tie(networkExog),
-    k_states = 2,
-    data = testData,
-    progress = FALSE
-  )
-  # the constraint restricts the candidate set, so fewer stacked rows
-  expect_lt(res_cstr$data_stan$Nchoice, res_free$data_stan$Nchoice)
-  # the constraint column is dropped from the estimated effects
-  expect_equal(res_cstr$data_stan$Pchoice, 2)
-  expect_false(any(grepl("tie", res_cstr$names_effects)))
 })

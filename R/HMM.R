@@ -80,6 +80,19 @@ make_data_hmm <- function(
     is.numeric(k_states) && length(k_states) == 1 && k_states >= 2
   )
 
+  # support_constraint is temporarily disabled: risk-set filtering is being
+  # moved into goldfish's preprocessing engine, after which the constraint is
+  # passed straight through to gather_model_data() instead of filtered here
+  if (!is.null(support_constraint)) {
+    cli::cli_abort(c(
+      "{.arg support_constraint} is temporarily unavailable.",
+      "i" = paste(
+        "risk-set filtering is being moved into {.pkg goldfish};",
+        "the argument will be re-enabled once that refactor lands."
+      )
+    ))
+  }
+
   # setting initial values of some arguments
   if (is.null(progress)) progress <- FALSE
 

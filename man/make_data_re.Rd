@@ -34,6 +34,9 @@ on the code would allow to use \code{"REM"} model too.}
 
 \item{support_constraint}{a \code{formula} with only an effect that gives the
 information of the restricted set to consider.
+\strong{Temporarily disabled}: passing a non-\code{NULL} value currently raises an
+error while risk-set filtering is being moved into \code{goldfish}'s
+preprocessing engine; the argument will be re-enabled once that lands.
 In the case of the \code{"choice"} sub-model, it corresponds to the choice set
 available to received an event at each moment of time.
 In the case of the \code{"rate"} sub-model, it corresponds to the competing set

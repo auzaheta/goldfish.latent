@@ -47,6 +47,9 @@
 #' @param sub_model Current version only support `"choice"` sub-model.
 #' @param support_constraint a `formula` with only an effect that gives the
 #' information of the restricted set to consider.
+#' **Temporarily disabled**: passing a non-`NULL` value currently raises an
+#' error while risk-set filtering is being moved into `goldfish`'s
+#' preprocessing engine; the argument will be re-enabled once that lands.
 #' In the case of the `"choice"` sub-model, it corresponds to the choice set
 #' available to received an event at each moment of time.
 #' In the case of the `"rate"` sub-model, it corresponds to the competing set
@@ -153,6 +156,19 @@ make_data_re <- function(
       "{.fun make_data_re} supports only one random effect.",
       "x" = "you supplied {length(random_effects)}.",
       "i" = "multi-RE inference is not yet available."
+    ))
+  }
+
+  # support_constraint is temporarily disabled: risk-set filtering is being
+  # moved into goldfish's preprocessing engine, after which the constraint is
+  # passed straight through to gather_model_data() instead of filtered here
+  if (!is.null(support_constraint)) {
+    cli_abort(c(
+      "{.arg support_constraint} is temporarily unavailable.",
+      "i" = paste(
+        "risk-set filtering is being moved into {.pkg goldfish};",
+        "the argument will be re-enabled once that refactor lands."
+      )
     ))
   }
 
