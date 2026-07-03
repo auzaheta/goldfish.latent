@@ -190,15 +190,6 @@ make_data_hmm <- function(
 
   if (!is.null(choice_effects)) {
     feTerms <- terms(choice_effects)
-    cstrTerms <- if (!is.null(support_constraint)) {
-      terms(support_constraint)
-    } else {
-      NULL
-    }
-
-    if (length(attr(cstrTerms, "term.labels")) > 1) {
-      stop(dQuote("support_constraint"), " argument only works for one effect.")
-    }
 
     if (any(attr(feTerms, "order") != 1)) {
       stop(
@@ -207,10 +198,7 @@ make_data_hmm <- function(
       )
     }
 
-    termsDyNAM <- c(
-      attr(feTerms, "term.labels"),
-      attr(cstrTerms, "term.labels")
-    ) |> unique()
+    termsDyNAM <- attr(feTerms, "term.labels")
 
     formulaDyNAM <- reformulate(
       termsDyNAM,
@@ -227,52 +215,27 @@ make_data_hmm <- function(
     )
 
     nEvents <- length(data_processed_choice$sender)
+    namesEffects <- gsub("\\$", "Of", unlist(data_processed_choice$namesEffects))
+    effectDescription <- data_processed_choice$effectDescription
 
-    namesEffects <- setNames(
-      gsub("\\$", "Of", data_processed_choice$namesEffects),
-      termsDyNAM
-    )
-
-    expandedDF <- cbind(
-      setNames(
-        as.data.frame(data_processed_choice$stat_all_events),
-        namesEffects
-      ),
-      data.frame(
-        event = rep(seq_len(nEvents), data_processed_choice$n_candidates),
-        selected = sequence(data_processed_choice$n_candidates) ==
-          rep(data_processed_choice$selected, data_processed_choice$n_candidates)
-      )
-    )
-
-    # subset if constraint
-    if (!is.null(support_constraint)) {
-      cstrName <- namesEffects[attr(cstrTerms, "term.labels")]
-      keep <- expandedDF[, cstrName] == 1
-      expandedDF <- expandedDF[keep, !names(expandedDF) %in% cstrName]
-      effectDescription <-
-        data_processed_choice$effectDescription[!namesEffects %in% cstrName, ]
-      namesEffects <- namesEffects[!namesEffects %in% cstrName]
-    } else {
-      effectDescription <- data_processed_choice$effectDescription
-    }
-
-    # create objects for Stan
-    nTotal <- nrow(expandedDF)
-
-    idxEvents <- tapply(seq_len(nTotal), expandedDF$event, range) |>
-      simplify2array()
-
-    Xmat <- as.matrix(expandedDF[, namesEffects])
+    # build Stan objects directly from the gather statistics (no constraint
+    # subsetting: support_constraint is rejected up front). Event blocks via
+    # cumsum; the chosen row is the 1-based selected position within its block
+    Xmat <- data_processed_choice$stat_all_events
+    colnames(Xmat) <- namesEffects
+    nTotal <- nrow(Xmat)
+    startChoice <- cumsum(c(1, head(data_processed_choice$n_candidates, -1)))
+    endChoice <- cumsum(data_processed_choice$n_candidates)
+    choseChoice <- data_processed_choice$selected + (startChoice - 1)
 
     data_stan_choice <- list(
       Tchoice = nEvents,
       Nchoice = nTotal,
       Pchoice = ncol(Xmat),
-      startChoice = idxEvents[1, ],
-      endChoice = idxEvents[2, ],
+      startChoice = startChoice,
+      endChoice = endChoice,
       Xchoice = Xmat,
-      choseChoice = which(expandedDF[, "selected"])
+      choseChoice = choseChoice
     )
 
     if (scale) {
