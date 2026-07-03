@@ -1,5 +1,20 @@
 # goldfish.latent (development version)
 
+* The two-level random-effects specification (`fixed_effects` +
+  `random_effects`) is now compiled into a single `goldfish` formula whose
+  cross-level terms are **native interaction terms** (`reMain:predictor`),
+  computed by `goldfish` during preprocessing. This removes the internal
+  `model.matrix()` product construction and the long-format expansion;
+  `make_data_re()` builds the design matrix directly from the gather statistics.
+  Requires `goldfish` >= 1.8.5. Results are numerically identical to the previous
+  implementation. The two-level user API is unchanged.
+* `support_constraint` is **temporarily disabled** in `make_data_re()` and
+  `make_data_hmm()` (passing a non-`NULL` value raises an error) while risk-set
+  filtering is being moved into `goldfish`'s preprocessing engine; it will be
+  re-enabled once that lands and the constraint can be passed straight through.
+* Internal: shared `sanitize_effect_names()` / `make_event_index()` /
+  `compute_offset_int()` helpers replace the duplicated gather-to-Stan idioms.
+
 * Compatibility with the reworked `goldfish::gather_model_data()` output
   (goldfish >= 1.8.x). `make_data_re()` and `make_data_hmm()` again build Stan
   data against the current gather result: the obsolete `"DyNAMRE"` model remap
