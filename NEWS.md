@@ -1,5 +1,21 @@
 # goldfish.latent (development version)
 
+* Compatibility with the reworked `goldfish::gather_model_data()` output
+  (goldfish >= 1.8.x). `make_data_re()` and `make_data_hmm()` again build Stan
+  data against the current gather result: the obsolete `"DyNAMRE"` model remap
+  is dropped, the 1-based `selected` vector is read as a vector (no longer a
+  matrix), and `make_data_hmm()` forwards `control_preprocessing` and reads
+  `has_intercept`.
+* The R-side data contract is standardised on **snake_case**: return-list fields
+  (`data_stan`, `senders_ix`, `names_effects`, `effect_description`) and the
+  `sub_model` / `model` S3 attributes now use one spelling at every set- and
+  read-site (fixing a silent set-camel/read-snake dispatch bug). Inner
+  `data_stan` keys stay Stan-spelled to match the `.stan` `data{}` blocks.
+* `make_data_re()` now rejects a `random_effects` list with more than one
+  element (single-random-effect inference only, as `compute_log_likelihood()`
+  already required).
+* `make_data_hmm()` gains a first test suite (`tests/testthat/test-HMM.R`).
+
 # goldfish.latent 0.0.1
 
 * Random-effects for DyNAM-choice model functionality is added:
