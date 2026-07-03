@@ -28,7 +28,7 @@ Useful links:
 }
 
 
-\code{\link[=estimate]{estimate()}}
+\code{\link[goldfish:estimate]{goldfish::estimate()}}
 }
 \author{
 \strong{Maintainer}: Alvaro Uzaheta \email{ualvaro@ethz.ch} (\href{https://orcid.org/0000-0003-4367-3670}{ORCID})

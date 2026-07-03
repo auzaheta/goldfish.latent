@@ -81,7 +81,7 @@
 #' @export
 #' @importFrom stats terms setNames as.formula model.matrix reformulate
 #' @importFrom goldfish gather_model_data
-#' @importFrom cli cli_abort cli_warn
+#' @importFrom cli cli_abort cli_warn cli_text
 #'
 #' @examples
 #' \donttest{
@@ -144,6 +144,16 @@ make_data_re <- function(
     ))
   }
 
+  # inference integrates out a single random effect; compute_log_likelihood()
+  # also refuses Q > 1, so reject multi-RE specifications up front
+  if (inherits(random_effects, "list") && length(random_effects) > 1) {
+    cli_abort(c(
+      "{.fun make_data_re} supports only one random effect.",
+      "x" = "you supplied {length(random_effects)}.",
+      "i" = "multi-RE inference is not yet available."
+    ))
+  }
+
   # setting initial values of some arguments
   if (is.null(progress)) {
     progress <- FALSE
@@ -177,7 +187,7 @@ make_data_re <- function(
   # create a full matrix for filtering
   processed_data <- goldfish::gather_model_data(
     formula = extended_formula$dynam_formula,
-    model = if (model == "DyNAM" && sub_model == "choice") "DyNAMRE" else model,
+    model = model,
     sub_model = sub_model,
     control_preprocessing = control_preprocessing,
     progress = progress,
@@ -295,7 +305,7 @@ make_data_re <- function(
       processed_data$isDependent <- TRUE
     }
     chose_full <- with(processed_data, {
-      selected[, 1] + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
+      selected + (cumsum(c(1, head(n_candidates, -1))) - 1) * isDependent
     })
     colnames(processed_data$stat_all_events) <- names_effects
     X_mat <- processed_data$stat_all_events
