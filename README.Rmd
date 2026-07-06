@@ -60,6 +60,7 @@ socialEvolutionData <- make_data(callsDependent)
 data2stan <- make_data_re(
  random_effects = list(inertia ~ 1),
  fixed_effects = callsDependent ~ recip + trans,
+ model = "DyNAM",
  data = socialEvolutionData
 )
 
